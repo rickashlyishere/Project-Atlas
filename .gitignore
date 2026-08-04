@@ -1,0 +1,23 @@
+# Virtual environment
+.venv/
+venv/
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Environment
+.env
+
+# Logs
+logs/
+*.log
+
+# Data
+data/
+
+# Models
+models/
+
+# IDE
+.vscode/settings.json
