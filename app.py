@@ -1,5 +1,7 @@
-from core.config.settings import settings
+from core.logging.logger import setup_logger
 
-print(settings.APP_NAME)
-print(settings.APP_VERSION)
-print(settings.DATA_DIR)
+logger = setup_logger(__name__)
+
+logger.info("Project Atlas started successfully.")
+logger.warning("Logger is working.")
+logger.error("This is a test error.")
