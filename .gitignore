@@ -1,23 +1,120 @@
-# Virtual environment
-.venv/
-venv/
-
+# ==========================
 # Python
+# ==========================
 __pycache__/
 *.py[cod]
+*$py.class
+*.pyo
+*.pyd
 
-# Environment
+# ==========================
+# Virtual Environments
+# ==========================
+.venv/
+venv/
+env/
+ENV/
+
+# ==========================
+# Environment Variables
+# ==========================
 .env
+.env.*
 
+# Keep the example file
+!.env.example
+
+# ==========================
+# IDEs
+# ==========================
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+
+# ==========================
 # Logs
+# ==========================
 logs/
 *.log
 
-# Data
+# ==========================
+# Python Cache
+# ==========================
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.cache/
+.coverage
+htmlcov/
+
+# ==========================
+# Build
+# ==========================
+build/
+dist/
+*.egg-info/
+
+# ==========================
+# Streamlit
+# ==========================
+.streamlit/secrets.toml
+
+# ==========================
+# Local Data
+# ==========================
 data/
+cache/
 
-# Models
+# Keep folder structure
+!data/.gitkeep
+!cache/.gitkeep
+
+# ==========================
+# AI Models
+# ==========================
 models/
+*.ckpt
+*.pth
+*.pt
+*.onnx
+*.bin
+*.gguf
+*.safetensors
 
-# IDE
-.vscode/settings.json
+# ==========================
+# Vector Databases
+# ==========================
+chroma_db/
+vector_db/
+*.sqlite3
+
+# ==========================
+# Temporary Files
+# ==========================
+*.tmp
+*.temp
+*.bak
+
+# ==========================
+# Jupyter
+# ==========================
+.ipynb_checkpoints/
+
+# ==========================
+# Operating System
+# ==========================
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# ==========================
+# Node (Future Electron UI)
+# ==========================
+node_modules/
+
+# ==========================
+# Misc
+# ==========================
+*.swp
+*.swo
