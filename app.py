@@ -1,25 +1,23 @@
 from pathlib import Path
 
-from infrastructure.parsers.text_parser import TextParser
+from infrastructure.parsers.docx_parser import DOCXParser
 
 
 def main() -> None:
+    parser = DOCXParser()
 
-    parser = TextParser()
+    document = parser.parse(Path("sample.docx"))
 
-    document = parser.parse(Path("sample.txt"))
-
-    print()
-
-    print("========== DOCUMENT ==========")
-
+    print("\n========== DOCUMENT ==========")
     print(f"Filename : {document.filename}")
     print(f"Type     : {document.document_type.value}")
     print(f"Pages    : {document.page_count}")
+    print(f"Author   : {document.metadata.author}")
+    print(f"Title    : {document.metadata.title}")
 
-    print()
+    print("\n========== CONTENT ==========\n")
 
-    print(document.pages[0].text)
+    print(document.extracted_text)
 
 
 if __name__ == "__main__":
