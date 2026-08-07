@@ -1,67 +1,66 @@
 from __future__ import annotations
 
 from pathlib import Path
+from uuid import uuid4
 
 import pymupdf
 
-from core.exceptions import ParserError
 from domain.document import (
     Document,
     DocumentMetadata,
     DocumentType,
     Page,
 )
-from domain.factories import DocumentFactory
+
 from infrastructure.parsers.base_parser import BaseParser
 
 
 class PDFParser(BaseParser):
     """
-    Parser for PDF documents using PyMuPDF.
+    Parser for PDF documents.
     """
 
     @property
     def supported_extensions(self) -> tuple[str, ...]:
         return (".pdf",)
 
-    def parse(self, file_path: Path) -> Document:
+    def _extract(self, file_path: Path) -> Document:
 
-        if not file_path.exists():
-            raise ParserError(f"File not found: {file_path}")
+        with pymupdf.open(file_path) as pdf:
 
-        try:
+            metadata = pdf.metadata or {}
 
-            with pymupdf.open(file_path) as pdf:
+            pages: list[Page] = []
 
-                metadata = pdf.metadata or {}
+            full_text: list[str] = []
 
-                pages: list[Page] = []
+            for page_number, page in enumerate(pdf, start=1):
 
-                for page_number, page in enumerate(pdf, start=1):
+                text = page.get_text()
 
-                    pages.append(
-                        Page(
-                            number=page_number,
-                            text=page.get_text(),
-                        )
+                pages.append(
+                    Page(
+                        number=page_number,
+                        text=text,
                     )
-
-                return DocumentFactory.create(
-                    filename=file_path.name,
-                    filepath=file_path,
-                    document_type=DocumentType.PDF,
-                    pages=pages,
-                    metadata=DocumentMetadata(
-                        title=metadata.get("title", ""),
-                        author=metadata.get("author", ""),
-                        subject=metadata.get("subject", ""),
-                        keywords=[],
-                        language="",
-                    ),
                 )
 
-        except Exception as error:
+                full_text.append(text)
 
-            raise ParserError(
-                f"Failed to parse PDF '{file_path.name}'."
-            ) from error
+            return Document(
+                id=str(uuid4()),
+                filename=file_path.name,
+                filepath=file_path,
+                document_type=DocumentType.PDF,
+                pages=pages,
+                metadata=DocumentMetadata(
+                    title=metadata.get("title", ""),
+                    author=metadata.get("author", ""),
+                    subject=metadata.get("subject", ""),
+                    keywords=[],
+                    language="",
+                ),
+                extracted_text="\n".join(full_text),
+                page_count=len(pages),
+                file_size=file_path.stat().st_size,
+            )
