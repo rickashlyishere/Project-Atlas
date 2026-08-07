@@ -1,3 +1,5 @@
-from core.exceptions import UnsupportedFileTypeError
+from infrastructure.registry.parser_registry import ParserRegistry
 
-raise UnsupportedFileTypeError("ZIP files are not supported.")
+registry = ParserRegistry()
+
+print(registry)
