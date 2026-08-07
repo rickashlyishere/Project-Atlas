@@ -1,5 +1,5 @@
 from .database import Database
-from .repository import DocumentRepository
+from .repositories import DocumentRepository
 from .schema import SchemaManager
 
 __all__ = [

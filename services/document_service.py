@@ -4,20 +4,23 @@ from pathlib import Path
 
 from domain.document import Document
 
+from infrastructure.database import (
+    Database,
+    DocumentRepository,
+    SchemaManager,
+)
 from infrastructure.parsers import (
     DOCXParser,
     PDFParser,
     TextParser,
 )
-
 from infrastructure.registry.parser_registry import ParserRegistry
-
 from services.storage_service import StorageService
 
 
 class DocumentService:
     """
-    Handles importing and parsing documents.
+    High-level service responsible for importing documents.
     """
 
     def __init__(self) -> None:
@@ -25,6 +28,12 @@ class DocumentService:
         self.registry = ParserRegistry()
 
         self.storage = StorageService()
+
+        self.database = Database()
+
+        SchemaManager(self.database).initialize()
+
+        self.repository = DocumentRepository(self.database)
 
         self._register_default_parsers()
 
@@ -48,4 +57,10 @@ class DocumentService:
             document,
         )
 
+        self.repository.add(document)
+
         return document
+
+    def list_documents(self):
+
+        return self.repository.list_all()
