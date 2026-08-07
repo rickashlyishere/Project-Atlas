@@ -1,7 +1,3 @@
-from core.logging.logger import setup_logger
+from core.exceptions import UnsupportedFileTypeError
 
-logger = setup_logger(__name__)
-
-logger.info("Project Atlas started successfully.")
-logger.warning("Logger is working.")
-logger.error("This is a test error.")
+raise UnsupportedFileTypeError("ZIP files are not supported.")
