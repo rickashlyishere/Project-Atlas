@@ -1,23 +1,34 @@
 from pathlib import Path
 
-from infrastructure.parsers.docx_parser import DOCXParser
+from services.document_service import DocumentService
 
 
-def main() -> None:
-    parser = DOCXParser()
+def print_document(document) -> None:
 
-    document = parser.parse(Path("sample.docx"))
+    print("\n" + "=" * 60)
+    print(document.filename)
+    print("=" * 60)
 
-    print("\n========== DOCUMENT ==========")
-    print(f"Filename : {document.filename}")
-    print(f"Type     : {document.document_type.value}")
-    print(f"Pages    : {document.page_count}")
-    print(f"Author   : {document.metadata.author}")
-    print(f"Title    : {document.metadata.title}")
+    print(f"Type      : {document.document_type.value}")
+    print(f"Pages     : {document.page_count}")
+    print(f"Size      : {document.file_size} bytes")
+    print(f"Title     : {document.metadata.title}")
+    print(f"Author    : {document.metadata.author}")
 
     print("\n========== CONTENT ==========\n")
 
-    print(document.extracted_text)
+    print(document.extracted_text[:1000])
+
+
+def main() -> None:
+
+    service = DocumentService()
+
+    document = service.load(
+        Path("sample.pdf")
+    )
+
+    print_document(document)
 
 
 if __name__ == "__main__":
