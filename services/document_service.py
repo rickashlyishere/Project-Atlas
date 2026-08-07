@@ -9,34 +9,43 @@ from infrastructure.parsers import (
     PDFParser,
     TextParser,
 )
+
 from infrastructure.registry.parser_registry import ParserRegistry
+
+from services.storage_service import StorageService
 
 
 class DocumentService:
     """
-    High-level service responsible for loading documents.
+    Handles importing and parsing documents.
     """
 
     def __init__(self) -> None:
 
         self.registry = ParserRegistry()
 
+        self.storage = StorageService()
+
         self._register_default_parsers()
 
     def _register_default_parsers(self) -> None:
-        """
-        Register all built-in parsers.
-        """
 
         self.registry.register(PDFParser())
         self.registry.register(DOCXParser())
         self.registry.register(TextParser())
 
-    def load(self, file_path: Path) -> Document:
-        """
-        Load a document using the correct parser.
-        """
+    def load(
+        self,
+        file_path: Path,
+    ) -> Document:
 
         parser = self.registry.get_parser(file_path)
 
-        return parser.parse(file_path)
+        document = parser.parse(file_path)
+
+        self.storage.save(
+            file_path,
+            document,
+        )
+
+        return document
