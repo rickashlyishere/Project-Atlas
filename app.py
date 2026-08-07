@@ -1,18 +1,26 @@
 from infrastructure.database import (
     Database,
+    DocumentRepository,
     SchemaManager,
 )
 
 
 def main() -> None:
-
     database = Database()
 
-    schema = SchemaManager(database)
+    SchemaManager(database).initialize()
 
-    schema.initialize()
+    repository = DocumentRepository(database)
 
-    print("Atlas database initialized successfully.")
+    documents = repository.get_all()
+
+    print("\n===== DOCUMENTS =====")
+
+    if not documents:
+        print("No documents in the database.")
+    else:
+        for row in documents:
+            print(dict(row))
 
 
 if __name__ == "__main__":
