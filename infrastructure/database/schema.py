@@ -14,6 +14,7 @@ class SchemaManager:
     def initialize(self) -> None:
         self._create_documents_table()
         self._create_chunks_table()
+        self._create_embeddings_table()
 
     def _create_documents_table(self) -> None:
         self.database.execute(
@@ -76,5 +77,37 @@ class SchemaManager:
             CREATE INDEX IF NOT EXISTS
             idx_chunks_page_number
             ON chunks(document_id, page_number);
+            """
+        )
+
+    def _create_embeddings_table(self) -> None:
+        self.database.execute(
+            """
+            CREATE TABLE IF NOT EXISTS embeddings
+            (
+                id TEXT PRIMARY KEY,
+
+                chunk_id TEXT NOT NULL UNIQUE,
+
+                model_name TEXT NOT NULL,
+
+                dimension INTEGER NOT NULL,
+
+                vector TEXT NOT NULL,
+
+                created_at TEXT NOT NULL,
+
+                FOREIGN KEY (chunk_id)
+                    REFERENCES chunks(id)
+                    ON DELETE CASCADE
+            );
+            """
+        )
+
+        self.database.execute(
+            """
+            CREATE INDEX IF NOT EXISTS
+            idx_embeddings_chunk_id
+            ON embeddings(chunk_id);
             """
         )
