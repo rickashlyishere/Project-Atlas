@@ -8,32 +8,48 @@ from infrastructure.database import (
     ChunkRepository,
     Database,
     DocumentRepository,
+    EmbeddingRepository,
     SchemaManager,
 )
+from infrastructure.embeddings import SentenceTransformerProvider
 from infrastructure.parsers import (
     DOCXParser,
+    ImageParser,
     PDFParser,
+    PPTXParser,
     TextParser,
 )
 from infrastructure.registry.parser_registry import ParserRegistry
+
 from services.chunk_service import ChunkService
+from services.embedding_service import EmbeddingService
 from services.storage_service import StorageService
 
 
 class DocumentService:
     """
     High-level service responsible for importing documents.
+
+    Dependencies can be injected for testing or for swapping
+    implementations.
     """
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        database: Database | None = None,
+        chunk_service: ChunkService | None = None,
+        embedding_service: EmbeddingService | None = None,
+    ) -> None:
 
         self.registry = ParserRegistry()
 
         self.storage = StorageService()
 
-        self.database = Database()
+        self.database = database or Database()
 
-        SchemaManager(self.database).initialize()
+        SchemaManager(
+            self.database
+        ).initialize()
 
         self.repository = DocumentRepository(
             self.database
@@ -43,38 +59,65 @@ class DocumentService:
             self.database
         )
 
-        self.chunk_service = ChunkService(
-            strategy=ChunkType.FIXED,
-            chunk_size=1000,
-            chunk_overlap=200,
+        self.embedding_repository = EmbeddingRepository(
+            self.database
         )
+
+        self.chunk_service = (
+            chunk_service
+            if chunk_service is not None
+            else ChunkService(
+                strategy=ChunkType.FIXED,
+                chunk_size=1000,
+                chunk_overlap=200,
+            )
+        )
+
+        if embedding_service is None:
+            embedding_service = EmbeddingService(
+                provider=SentenceTransformerProvider(),
+                repository=self.embedding_repository,
+            )
+
+        self.embedding_service = embedding_service
 
         self._register_default_parsers()
 
     def _register_default_parsers(self) -> None:
+        """
+        Register all supported document parsers.
+        """
 
         self.registry.register(PDFParser())
         self.registry.register(DOCXParser())
+        self.registry.register(PPTXParser())
         self.registry.register(TextParser())
+        self.registry.register(ImageParser())
 
     def load(
         self,
         file_path: Path,
     ) -> Document:
         """
-        Parse, store, chunk, and persist a document.
+        Parse, store, chunk, and embed a document.
         """
 
-        parser = self.registry.get_parser(file_path)
+        parser = self.registry.get_parser(
+            file_path
+        )
 
-        document = parser.parse(file_path)
+        document = parser.parse(
+            file_path
+        )
 
         self.storage.save(
             file_path,
             document,
         )
 
-        self.repository.add(document)
+        self.repository.add(
+            document
+        )
 
         chunks = self.chunk_service.chunk_document(
             document
@@ -85,9 +128,24 @@ class DocumentService:
             chunks=chunks,
         )
 
+        if chunks:
+            self.embedding_service.embed_and_persist(
+                chunks
+            )
+
+            # Persist the generated embedding IDs
+            # back onto the chunk records.
+            self.chunk_repository.add_many(
+                document_id=document.id,
+                chunks=chunks,
+            )
+
         return document
 
     def list_documents(self):
+        """
+        Return all stored documents.
+        """
 
         return self.repository.list_all()
 
@@ -96,9 +154,21 @@ class DocumentService:
         document_id: str,
     ):
         """
-        Return all persisted chunks for a document.
+        Return all chunks belonging to a document.
         """
 
         return self.chunk_repository.get_by_document(
             document_id
+        )
+
+    def get_embedding(
+        self,
+        chunk_id: str,
+    ):
+        """
+        Return the embedding belonging to a chunk.
+        """
+
+        return self.embedding_repository.get_by_chunk(
+            chunk_id
         )

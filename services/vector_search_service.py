@@ -1,23 +1,21 @@
 from __future__ import annotations
 
+from typing import Any
+
 import math
 
 
 class VectorSearchService:
     """
     Performs cosine-similarity search over persisted vectors.
-
-    This is intentionally implemented without a vector database
-    dependency. It gives Atlas a correct reference implementation
-    before we introduce a specialized vector store.
     """
 
     def search(
         self,
         query_vector: list[float],
-        candidates: list[dict],
+        candidates: list[dict[str, Any]],
         top_k: int = 5,
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """
         Return the top-k most similar vectors.
         """
@@ -32,7 +30,7 @@ class VectorSearchService:
                 "query_vector cannot be empty."
             )
 
-        scored: list[dict] = []
+        scored: list[dict[str, Any]] = []
 
         for candidate in candidates:
             vector = candidate["vector"]
@@ -83,18 +81,31 @@ class VectorSearchService:
 
         dot_product = sum(
             left * right
-            for left, right in zip(first, second)
+            for left, right in zip(
+                first,
+                second,
+                strict=True,
+            )
         )
 
         first_norm = math.sqrt(
-            sum(value * value for value in first)
+            sum(
+                value * value
+                for value in first
+            )
         )
 
         second_norm = math.sqrt(
-            sum(value * value for value in second)
+            sum(
+                value * value
+                for value in second
+            )
         )
 
-        if first_norm == 0 or second_norm == 0:
+        if first_norm == 0.0:
+            return 0.0
+
+        if second_norm == 0.0:
             return 0.0
 
         return dot_product / (

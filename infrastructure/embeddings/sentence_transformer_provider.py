@@ -25,7 +25,17 @@ class SentenceTransformerProvider(EmbeddingProvider):
         Return the dimensionality of the embedding model.
         """
 
-        return self._model.get_sentence_embedding_dimension()
+        dimension = (
+            self._model.get_sentence_embedding_dimension()
+        )
+
+        if dimension is None:
+            raise RuntimeError(
+                "The embedding model did not provide "
+                "a valid embedding dimension."
+            )
+
+        return dimension
 
     def embed_text(
         self,
