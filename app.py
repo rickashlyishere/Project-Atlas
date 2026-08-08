@@ -16,20 +16,31 @@ st.set_page_config(
 
 @st.cache_resource
 def get_service() -> DocumentService:
+    """
+    Create and cache the Atlas document service.
+    """
     return DocumentService()
 
 
 service = get_service()
 
+
 st.title("📚 Project Atlas")
 st.caption("Offline AI Knowledge Platform")
 
+
 uploaded_file = st.file_uploader(
     "Upload a document",
-    type=["pdf", "docx", "txt"],
+    type=[
+        "pdf",
+        "docx",
+        "pptx",
+        "txt",
+    ],
 )
 
-if uploaded_file:
+
+if uploaded_file is not None:
 
     upload_dir = Path("data/uploads")
 
@@ -44,15 +55,40 @@ if uploaded_file:
         uploaded_file.getbuffer()
     )
 
-    document = service.load(file_path)
+    try:
 
-    st.success("Document imported successfully!")
+        document = service.load(file_path)
+
+        st.success(
+            f"'{document.filename}' imported successfully!"
+        )
+
+        st.write(
+            f"**Type:** {document.document_type.value.upper()}"
+        )
+
+        st.write(
+            f"**Pages / Slides:** {document.page_count}"
+        )
+
+        st.write(
+            f"**File Size:** {document.file_size:,} bytes"
+        )
+
+    except Exception as error:
+
+        st.error(
+            f"Failed to import '{uploaded_file.name}': {error}"
+        )
+
 
 st.divider()
 
 st.subheader("📚 Document Library")
 
+
 documents = service.list_documents()
+
 
 if not documents:
 
@@ -62,12 +98,26 @@ else:
 
     for row in documents:
 
-        st.container(border=True)
+        with st.container(border=True):
 
-        st.write(f"**{row['filename']}**")
+            st.write(
+                f"**{row['filename']}**"
+            )
 
-        st.caption(
-            f"{row['document_type'].upper()} • "
-            f"{row['page_count']} pages • "
-            f"{row['file_size']:,} bytes"
-        )
+            st.caption(
+                f"{row['document_type'].upper()} • "
+                f"{row['page_count']} pages • "
+                f"{row['file_size']:,} bytes"
+            )
+
+            if row["title"]:
+
+                st.write(
+                    f"**Title:** {row['title']}"
+                )
+
+            if row["author"]:
+
+                st.write(
+                    f"**Author:** {row['author']}"
+                )
