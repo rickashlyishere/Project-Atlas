@@ -2,21 +2,21 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from domain.document import Document
+from domain.document import ChunkType, Document
 
 from infrastructure.database import (
+    ChunkRepository,
     Database,
     DocumentRepository,
     SchemaManager,
 )
 from infrastructure.parsers import (
     DOCXParser,
-    ImageParser,
     PDFParser,
-    PPTXParser,
     TextParser,
 )
 from infrastructure.registry.parser_registry import ParserRegistry
+from services.chunk_service import ChunkService
 from services.storage_service import StorageService
 
 
@@ -26,6 +26,7 @@ class DocumentService:
     """
 
     def __init__(self) -> None:
+
         self.registry = ParserRegistry()
 
         self.storage = StorageService()
@@ -34,27 +35,34 @@ class DocumentService:
 
         SchemaManager(self.database).initialize()
 
-        self.repository = DocumentRepository(self.database)
+        self.repository = DocumentRepository(
+            self.database
+        )
+
+        self.chunk_repository = ChunkRepository(
+            self.database
+        )
+
+        self.chunk_service = ChunkService(
+            strategy=ChunkType.FIXED,
+            chunk_size=1000,
+            chunk_overlap=200,
+        )
 
         self._register_default_parsers()
 
     def _register_default_parsers(self) -> None:
-        """
-        Register all currently supported document parsers.
-        """
 
         self.registry.register(PDFParser())
         self.registry.register(DOCXParser())
-        self.registry.register(PPTXParser())
         self.registry.register(TextParser())
-        self.registry.register(ImageParser())
 
     def load(
         self,
         file_path: Path,
     ) -> Document:
         """
-        Parse, persist, and index a document.
+        Parse, store, chunk, and persist a document.
         """
 
         parser = self.registry.get_parser(file_path)
@@ -68,11 +76,29 @@ class DocumentService:
 
         self.repository.add(document)
 
+        chunks = self.chunk_service.chunk_document(
+            document
+        )
+
+        self.chunk_repository.add_many(
+            document_id=document.id,
+            chunks=chunks,
+        )
+
         return document
 
     def list_documents(self):
-        """
-        Return all documents currently stored in Atlas.
-        """
 
         return self.repository.list_all()
+
+    def get_chunks(
+        self,
+        document_id: str,
+    ):
+        """
+        Return all persisted chunks for a document.
+        """
+
+        return self.chunk_repository.get_by_document(
+            document_id
+        )
