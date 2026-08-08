@@ -16,6 +16,10 @@ st.set_page_config(
 )
 
 
+# ============================================================
+# SERVICES
+# ============================================================
+
 @st.cache_resource
 def get_service() -> DocumentService:
     """
@@ -33,8 +37,8 @@ def get_search_service(
     already-cached DocumentService dependencies.
 
     This function is intentionally not cached because
-    DocumentService contains objects that Streamlit cannot
-    reliably hash.
+    DocumentService contains objects that Streamlit
+    cannot reliably hash.
     """
 
     return SearchService(
@@ -178,6 +182,13 @@ if uploaded_file is not None:
 
 
 # ============================================================
+# GET DOCUMENTS
+# ============================================================
+
+documents = service.list_documents()
+
+
+# ============================================================
 # SEMANTIC SEARCH
 # ============================================================
 
@@ -200,29 +211,77 @@ query = st.text_input(
 )
 
 
-search_col1, search_col2 = st.columns(
-    [3, 1]
+# ------------------------------------------------------------
+# SEARCH CONTROLS
+# ------------------------------------------------------------
+
+document_options: dict[str, str] = {
+    "All documents": "",
+}
+
+for row in documents:
+
+    document_id = str(
+        row["id"]
+    )
+
+    filename = str(
+        row["filename"]
+    )
+
+    document_options[
+        filename
+    ] = document_id
+
+
+search_col1, search_col2, search_col3 = st.columns(
+    [3, 1, 1]
 )
 
 
 with search_col1:
 
-    top_k = st.slider(
-        "Number of results",
-        min_value=1,
-        max_value=10,
-        value=5,
+    selected_document_name = st.selectbox(
+        "Search in",
+        options=list(
+            document_options.keys()
+        ),
     )
 
 
 with search_col2:
 
-    search_button = st.button(
-        "Search",
-        type="primary",
-        use_container_width=True,
+    top_k = st.number_input(
+        "Results",
+        min_value=1,
+        max_value=50,
+        value=10,
+        step=1,
     )
 
+
+with search_col3:
+
+    minimum_score = st.number_input(
+        "Minimum similarity",
+        min_value=0.0,
+        max_value=1.0,
+        value=0.0,
+        step=0.05,
+        format="%.2f",
+    )
+
+
+search_button = st.button(
+    "🔎 Search",
+    type="primary",
+    use_container_width=True,
+)
+
+
+# ============================================================
+# SEARCH EXECUTION
+# ============================================================
 
 if search_button:
 
@@ -234,22 +293,71 @@ if search_button:
 
     else:
 
+        selected_document_id = (
+            document_options[
+                selected_document_name
+            ]
+        )
+
         try:
 
             with st.spinner(
                 "Searching Atlas..."
             ):
 
-                results = search_service.search(
-                    query=query,
-                    top_k=top_k,
-                )
+                if selected_document_id:
+
+                    results = (
+                        search_service.search_document(
+                            document_id=(
+                                selected_document_id
+                            ),
+                            query=query,
+                            top_k=int(top_k),
+                        )
+                    )
+
+                else:
+
+                    results = (
+                        search_service.search(
+                            query=query,
+                            top_k=int(top_k),
+                        )
+                    )
+
+            # ------------------------------------------------
+            # SCORE FILTER
+            # ------------------------------------------------
+
+            results = [
+                result
+                for result in results
+                if float(
+                    result["score"]
+                ) >= minimum_score
+            ]
+
+            # ------------------------------------------------
+            # RESULTS
+            # ------------------------------------------------
 
             if not results:
 
-                st.info(
-                    "No indexed content was found."
-                )
+                if minimum_score > 0:
+
+                    st.info(
+                        "No results met the minimum "
+                        f"similarity score of "
+                        f"{minimum_score:.2f}."
+                    )
+
+                else:
+
+                    st.info(
+                        "No indexed content was found "
+                        "for this search."
+                    )
 
             else:
 
@@ -263,12 +371,16 @@ if search_button:
                     start=1,
                 ):
 
+                    score = float(
+                        result["score"]
+                    )
+
                     st.markdown(
                         f"### Result {index}"
                     )
 
-                    result_col1, result_col2 = (
-                        st.columns(2)
+                    result_col1, result_col2, result_col3 = (
+                        st.columns(3)
                     )
 
                     with result_col1:
@@ -285,9 +397,12 @@ if search_button:
                             f"{result['page_number']}"
                         )
 
-                    score = float(
-                        result["score"]
-                    )
+                    with result_col3:
+
+                        st.write(
+                            f"**Similarity:** "
+                            f"{score:.4f}"
+                        )
 
                     st.progress(
                         min(
@@ -297,11 +412,6 @@ if search_button:
                             ),
                             1.0,
                         )
-                    )
-
-                    st.caption(
-                        f"Similarity score: "
-                        f"{score:.4f}"
                     )
 
                     st.write(
@@ -362,9 +472,6 @@ st.divider()
 st.subheader(
     "📚 Document Library"
 )
-
-
-documents = service.list_documents()
 
 
 if not documents:
