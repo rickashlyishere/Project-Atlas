@@ -19,6 +19,7 @@ def get_service() -> DocumentService:
     """
     Create and cache the Atlas document service.
     """
+
     return DocumentService()
 
 
@@ -36,6 +37,9 @@ uploaded_file = st.file_uploader(
         "docx",
         "pptx",
         "txt",
+        "png",
+        "jpg",
+        "jpeg",
     ],
 )
 
@@ -68,17 +72,35 @@ if uploaded_file is not None:
         )
 
         st.write(
-            f"**Pages / Slides:** {document.page_count}"
+            f"**Pages:** {document.page_count}"
         )
 
         st.write(
             f"**File Size:** {document.file_size:,} bytes"
         )
 
+        if document.extracted_text:
+
+            st.subheader("Extracted Text")
+
+            st.text_area(
+                "OCR Result",
+                document.extracted_text,
+                height=300,
+            )
+
+        else:
+
+            st.warning(
+                "Atlas imported the image, but OCR did not "
+                "extract any text."
+            )
+
     except Exception as error:
 
         st.error(
-            f"Failed to import '{uploaded_file.name}': {error}"
+            f"Failed to import "
+            f"'{uploaded_file.name}': {error}"
         )
 
 

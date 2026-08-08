@@ -11,6 +11,7 @@ from infrastructure.database import (
 )
 from infrastructure.parsers import (
     DOCXParser,
+    ImageParser,
     PDFParser,
     PPTXParser,
     TextParser,
@@ -41,10 +42,12 @@ class DocumentService:
         """
         Register all currently supported document parsers.
         """
+
         self.registry.register(PDFParser())
         self.registry.register(DOCXParser())
         self.registry.register(PPTXParser())
         self.registry.register(TextParser())
+        self.registry.register(ImageParser())
 
     def load(
         self,
@@ -53,6 +56,7 @@ class DocumentService:
         """
         Parse, persist, and index a document.
         """
+
         parser = self.registry.get_parser(file_path)
 
         document = parser.parse(file_path)
@@ -70,4 +74,5 @@ class DocumentService:
         """
         Return all documents currently stored in Atlas.
         """
+
         return self.repository.list_all()
