@@ -1,0 +1,8 @@
+from __future__ import annotations
+
+
+OLLAMA_BASE_URL = "http://127.0.0.1:11434"
+
+OLLAMA_MODEL = "llama3.2"
+
+OLLAMA_TIMEOUT = 300.0

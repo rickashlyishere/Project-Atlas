@@ -1,24 +1,24 @@
 from __future__ import annotations
 
-from typing import Any
-
 import ollama
 
 from domain.llm.interfaces import LLMProvider
 
 
-class OllamaProvider:
+class OllamaProvider(LLMProvider):
     """
     LLM provider backed by a local Ollama server.
 
-    Uses the official Ollama Python client.
+    Ollama connection settings are supplied by the
+    application configuration rather than being hard-coded
+    into this provider.
     """
 
     def __init__(
         self,
         model_name: str,
-        base_url: str = "http://127.0.0.1:11434",
-        timeout: float = 120.0,
+        base_url: str,
+        timeout: float,
     ) -> None:
         model_name = model_name.strip()
         base_url = base_url.strip().rstrip("/")
@@ -93,7 +93,7 @@ class OllamaProvider:
                 "model is available."
             ) from error
 
-        response_text: Any = response.get(
+        response_text = response.get(
             "response"
         )
 
