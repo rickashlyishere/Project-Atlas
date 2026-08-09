@@ -66,9 +66,12 @@ class PDFParser(BaseParser):
 
                 text = page.get_text()
 
-                text = self._normalize_text(
-                    text
-                )
+                if isinstance(text, str):
+                    text = self._normalize_text(
+                        text
+                    )
+                else:
+                    text = ""
 
                 # ------------------------------------------------
                 # OCR FALLBACK

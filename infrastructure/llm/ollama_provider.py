@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import json
-import urllib.error
-import urllib.request
+from typing import Any
+
+import ollama
 
 from domain.llm.interfaces import LLMProvider
 
@@ -11,7 +11,7 @@ class OllamaProvider:
     """
     LLM provider backed by a local Ollama server.
 
-    Atlas communicates with Ollama through its HTTP API.
+    Uses the official Ollama Python client.
     """
 
     def __init__(
@@ -20,9 +20,8 @@ class OllamaProvider:
         base_url: str = "http://127.0.0.1:11434",
         timeout: float = 120.0,
     ) -> None:
-
         model_name = model_name.strip()
-        base_url = base_url.rstrip("/")
+        base_url = base_url.strip().rstrip("/")
 
         if not model_name:
             raise ValueError(
@@ -43,6 +42,11 @@ class OllamaProvider:
         self._base_url = base_url
         self._timeout = timeout
 
+        self._client = ollama.Client(
+            host=self._base_url,
+            timeout=self._timeout,
+        )
+
     @property
     def model_name(self) -> str:
         """
@@ -54,7 +58,7 @@ class OllamaProvider:
     @property
     def base_url(self) -> str:
         """
-        Return the configured Ollama base URL.
+        Return the configured Ollama server URL.
         """
 
         return self._base_url
@@ -64,7 +68,7 @@ class OllamaProvider:
         prompt: str,
     ) -> str:
         """
-        Generate a response from Ollama.
+        Generate a response using Ollama.
         """
 
         prompt = prompt.strip()
@@ -74,62 +78,22 @@ class OllamaProvider:
                 "Prompt cannot be empty."
             )
 
-        payload = {
-            "model": self._model_name,
-            "prompt": prompt,
-            "stream": False,
-        }
-
-        request = urllib.request.Request(
-            url=f"{self._base_url}/api/generate",
-            data=json.dumps(
-                payload
-            ).encode("utf-8"),
-            headers={
-                "Content-Type": "application/json",
-            },
-            method="POST",
-        )
-
         try:
-
-            with urllib.request.urlopen(
-                request,
-                timeout=self._timeout,
-            ) as response:
-
-                raw_response = response.read()
-
-        except urllib.error.URLError as error:
-
-            raise RuntimeError(
-                "Could not connect to Ollama at "
-                f"{self._base_url}. "
-                "Make sure Ollama is running."
-            ) from error
-
-        except TimeoutError as error:
-
-            raise RuntimeError(
-                "The Ollama request timed out."
-            ) from error
-
-        try:
-
-            response_data = json.loads(
-                raw_response.decode("utf-8")
+            response = self._client.generate(
+                model=self._model_name,
+                prompt=prompt,
+                stream=False,
             )
 
-        except (
-            UnicodeDecodeError,
-            json.JSONDecodeError,
-        ) as error:
-
+        except Exception as error:
             raise RuntimeError(
-                "Ollama returned an invalid JSON response."
+                "Could not generate a response from "
+                f"Ollama model '{self._model_name}'. "
+                "Make sure Ollama is running and the "
+                "model is available."
             ) from error
 
-        response_text = response_data.get(
+        response_text: Any = response.get(
             "response"
         )
 
@@ -137,7 +101,6 @@ class OllamaProvider:
             response_text,
             str,
         ):
-
             raise RuntimeError(
                 "Ollama response did not contain "
                 "a valid 'response' field."
@@ -146,7 +109,6 @@ class OllamaProvider:
         response_text = response_text.strip()
 
         if not response_text:
-
             raise RuntimeError(
                 "Ollama returned an empty response."
             )
