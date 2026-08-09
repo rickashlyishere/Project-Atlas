@@ -53,6 +53,8 @@ class Document:
 
     page_count: int = 0
 
+    content_hash: str = ""
+
     created_at: datetime = field(
         default_factory=datetime.now
     )

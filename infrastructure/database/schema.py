@@ -8,11 +8,15 @@ class SchemaManager:
     Creates and maintains the Atlas database schema.
     """
 
-    def __init__(self, database: Database) -> None:
+    def __init__(
+        self,
+        database: Database,
+    ) -> None:
         self.database = database
 
     def initialize(self) -> None:
         self._create_documents_table()
+        self._migrate_documents_content_hash()
         self._create_chunks_table()
         self._create_embeddings_table()
 
@@ -33,8 +37,45 @@ class SchemaManager:
                 page_count INTEGER,
                 file_size INTEGER,
 
+                content_hash TEXT,
+
                 created_at TEXT
             );
+            """
+        )
+
+    def _migrate_documents_content_hash(
+        self,
+    ) -> None:
+        """
+        Add content_hash to databases created by an
+        older Atlas version.
+        """
+
+        columns = self.database.execute(
+            """
+            PRAGMA table_info(documents);
+            """
+        ).fetchall()
+
+        column_names = {
+            str(column["name"])
+            for column in columns
+        }
+
+        if "content_hash" not in column_names:
+            self.database.execute(
+                """
+                ALTER TABLE documents
+                ADD COLUMN content_hash TEXT;
+                """
+            )
+
+        self.database.execute(
+            """
+            CREATE INDEX IF NOT EXISTS
+            idx_documents_content_hash
+            ON documents(content_hash);
             """
         )
 

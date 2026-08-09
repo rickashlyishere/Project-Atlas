@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import hashlib
+from pathlib import Path
+
 from domain.document import Document
 
 from infrastructure.database.database import Database
@@ -10,10 +13,16 @@ class DocumentRepository:
     Repository responsible for document persistence.
     """
 
-    def __init__(self, database: Database) -> None:
+    def __init__(
+        self,
+        database: Database,
+    ) -> None:
         self.database = database
 
-    def add(self, document: Document) -> None:
+    def add(
+        self,
+        document: Document,
+    ) -> None:
         """
         Insert a document into the database.
         """
@@ -31,11 +40,12 @@ class DocumentRepository:
                 subject,
                 page_count,
                 file_size,
+                content_hash,
                 created_at
             )
             VALUES
             (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
             )
             """,
             (
@@ -48,9 +58,108 @@ class DocumentRepository:
                 document.metadata.subject,
                 document.page_count,
                 document.file_size,
+                document.content_hash,
                 document.created_at.isoformat(),
             ),
         )
+
+    def get_by_content_hash(
+        self,
+        content_hash: str,
+    ):
+        """
+        Return the first document matching a SHA-256
+        content hash.
+        """
+
+        content_hash = content_hash.strip().lower()
+
+        if not content_hash:
+            return None
+
+        cursor = self.database.execute(
+            """
+            SELECT *
+            FROM documents
+            WHERE content_hash = ?
+            ORDER BY created_at ASC
+            LIMIT 1
+            """,
+            (content_hash,),
+        )
+
+        return cursor.fetchone()
+
+    def backfill_content_hashes(self) -> int:
+        """
+        Calculate hashes for existing documents that do
+        not yet have one.
+
+        Returns the number of documents successfully updated.
+        """
+
+        rows = self.database.execute(
+            """
+            SELECT id, filepath
+            FROM documents
+            WHERE content_hash IS NULL
+               OR content_hash = ''
+            ORDER BY created_at ASC
+            """
+        ).fetchall()
+
+        updated = 0
+
+        for row in rows:
+            filepath = Path(
+                str(row["filepath"])
+            )
+
+            if not filepath.is_file():
+                continue
+
+            content_hash = (
+                self._calculate_file_hash(
+                    filepath
+                )
+            )
+
+            self.database.execute(
+                """
+                UPDATE documents
+                SET content_hash = ?
+                WHERE id = ?
+                """,
+                (
+                    content_hash,
+                    row["id"],
+                ),
+            )
+
+            updated += 1
+
+        return updated
+
+    @staticmethod
+    def _calculate_file_hash(
+        file_path: Path,
+    ) -> str:
+        """
+        Calculate SHA-256 for a file.
+        """
+
+        digest = hashlib.sha256()
+
+        with file_path.open(
+            "rb"
+        ) as file:
+            for block in iter(
+                lambda: file.read(1024 * 1024),
+                b"",
+            ):
+                digest.update(block)
+
+        return digest.hexdigest()
 
     def list_all(self) -> list:
         """

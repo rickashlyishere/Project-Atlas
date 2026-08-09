@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+from datetime import datetime
 from pathlib import Path
 
 from domain.document import ChunkType, Document
@@ -11,7 +13,9 @@ from infrastructure.database import (
     EmbeddingRepository,
     SchemaManager,
 )
-from infrastructure.embeddings import SentenceTransformerProvider
+from infrastructure.embeddings import (
+    SentenceTransformerProvider,
+)
 from infrastructure.parsers import (
     DOCXParser,
     ImageParser,
@@ -19,7 +23,9 @@ from infrastructure.parsers import (
     PPTXParser,
     TextParser,
 )
-from infrastructure.registry.parser_registry import ParserRegistry
+from infrastructure.registry.parser_registry import (
+    ParserRegistry,
+)
 
 from services.chunk_service import ChunkService
 from services.embedding_service import EmbeddingService
@@ -54,6 +60,10 @@ class DocumentService:
         self.repository = DocumentRepository(
             self.database
         )
+
+        # Backfill hashes for documents created by older
+        # versions of Atlas.
+        self.repository.backfill_content_hashes()
 
         self.chunk_repository = ChunkRepository(
             self.database
@@ -94,21 +104,90 @@ class DocumentService:
         self.registry.register(TextParser())
         self.registry.register(ImageParser())
 
+    @staticmethod
+    def _calculate_file_hash(
+        file_path: Path,
+    ) -> str:
+        """
+        Calculate SHA-256 for the source file.
+        """
+
+        digest = hashlib.sha256()
+
+        with file_path.open(
+            "rb"
+        ) as file:
+            for block in iter(
+                lambda: file.read(1024 * 1024),
+                b"",
+            ):
+                digest.update(block)
+
+        return digest.hexdigest()
+
     def load(
         self,
         file_path: Path,
     ) -> Document:
         """
         Parse, store, chunk, and embed a document.
+
+        If the exact same file content has already been
+        indexed, return the existing document instead of
+        creating duplicate chunks and embeddings.
         """
+
+        file_path = Path(file_path)
+
+        if not file_path.is_file():
+            raise FileNotFoundError(
+                f"Document file does not exist: {file_path}"
+            )
+
+        content_hash = (
+            self._calculate_file_hash(
+                file_path
+            )
+        )
+
+        existing = (
+            self.repository.get_by_content_hash(
+                content_hash
+            )
+        )
 
         parser = self.registry.get_parser(
             file_path
         )
 
+        # Parse even when the document already exists so the
+        # returned object remains a proper domain Document.
         document = parser.parse(
             file_path
         )
+
+        if existing is not None:
+            document.id = str(
+                existing["id"]
+            )
+
+            document.filepath = Path(
+                str(existing["filepath"])
+            )
+
+            document.created_at = (
+                datetime.fromisoformat(
+                    str(existing["created_at"])
+                )
+            )
+
+            document.content_hash = (
+                content_hash
+            )
+
+            return document
+
+        document.content_hash = content_hash
 
         self.storage.save(
             file_path,
