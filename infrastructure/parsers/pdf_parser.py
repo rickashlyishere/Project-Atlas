@@ -56,17 +56,13 @@ class PDFParser(BaseParser):
 
             page_count = len(pdf)
 
-            for page_index in range(
-                page_count
-            ):
+            for page_index in range(page_count):
 
                 page = pdf.load_page(
                     page_index
                 )
 
-                page_number = (
-                    page_index + 1
-                )
+                page_number = page_index + 1
 
                 text = page.get_text()
 
@@ -104,17 +100,17 @@ class PDFParser(BaseParser):
                 document_type=DocumentType.PDF,
                 pages=pages,
                 metadata=DocumentMetadata(
-                    title=metadata.get(
+                    title=self._metadata_string(
+                        metadata,
                         "title",
-                        "",
                     ),
-                    author=metadata.get(
+                    author=self._metadata_string(
+                        metadata,
                         "author",
-                        "",
                     ),
-                    subject=metadata.get(
+                    subject=self._metadata_string(
+                        metadata,
                         "subject",
-                        "",
                     ),
                     keywords=[],
                     language="",
@@ -125,6 +121,30 @@ class PDFParser(BaseParser):
                 page_count=page_count,
                 file_size=file_path.stat().st_size,
             )
+
+    @staticmethod
+    def _metadata_string(
+        metadata: dict,
+        key: str,
+    ) -> str:
+        """
+        Safely extract a string metadata value.
+
+        PyMuPDF's metadata typing permits several value types,
+        while Atlas's DocumentMetadata expects strings.
+        """
+
+        value = metadata.get(key)
+
+        if isinstance(value, str):
+
+            return value
+
+        if value is None:
+
+            return ""
+
+        return str(value)
 
     @classmethod
     def _find_tesseract(
