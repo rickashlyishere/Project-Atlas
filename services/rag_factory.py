@@ -8,6 +8,11 @@ from config.llm import (
     OLLAMA_MODEL,
     OLLAMA_TIMEOUT,
 )
+from config.rag import (
+    RAG_MAX_CONTEXT_CHARACTERS,
+    RAG_MAX_SOURCES,
+    RAG_MINIMUM_SCORE,
+)
 
 from services.context_assembler import (
     ContextAssembler,
@@ -47,9 +52,9 @@ def create_rag_service(
     )
 
     context_assembler = ContextAssembler(
-        max_sources=5,
-        max_characters=12000,
-        minimum_score=0.0,
+        max_sources=RAG_MAX_SOURCES,
+        max_characters=RAG_MAX_CONTEXT_CHARACTERS,
+        minimum_score=RAG_MINIMUM_SCORE,
     )
 
     prompt_builder = GroundedPromptBuilder()

@@ -1,0 +1,7 @@
+from __future__ import annotations
+
+RAG_MAX_SOURCES = 5
+
+RAG_MAX_CONTEXT_CHARACTERS = 12000
+
+RAG_MINIMUM_SCORE = 0.35
