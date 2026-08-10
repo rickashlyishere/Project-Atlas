@@ -17,6 +17,10 @@ st.set_page_config(
 )
 
 
+# ============================================================
+# SERVICES
+# ============================================================
+
 @st.cache_resource
 def get_service() -> DocumentService:
     return DocumentService()
@@ -53,6 +57,10 @@ rag_service = get_rag_service(
 )
 
 
+# ============================================================
+# HEADER
+# ============================================================
+
 st.title("📚 Project Atlas")
 
 st.caption(
@@ -60,7 +68,12 @@ st.caption(
 )
 
 
+# ============================================================
+# DOCUMENT UPLOAD
+# ============================================================
+
 st.header("Import Document")
+
 
 uploaded_file = st.file_uploader(
     "Upload a document",
@@ -114,18 +127,21 @@ if uploaded_file is not None:
         col1, col2, col3 = st.columns(3)
 
         with col1:
+
             st.metric(
                 "Type",
                 document.document_type.value.upper(),
             )
 
         with col2:
+
             st.metric(
                 "Pages",
                 document.page_count,
             )
 
         with col3:
+
             st.metric(
                 "File Size",
                 f"{document.file_size:,} bytes",
@@ -169,6 +185,10 @@ if uploaded_file is not None:
 
 documents = service.list_documents()
 
+
+# ============================================================
+# ASK ATLAS
+# ============================================================
 
 st.divider()
 
@@ -275,6 +295,10 @@ if ask_button:
                 f"{error}"
             )
 
+
+# ============================================================
+# SEMANTIC SEARCH
+# ============================================================
 
 st.divider()
 
@@ -532,6 +556,10 @@ if search_button:
             )
 
 
+# ============================================================
+# DOCUMENT LIBRARY
+# ============================================================
+
 st.divider()
 
 st.subheader(
@@ -549,12 +577,20 @@ else:
 
     for row in documents:
 
+        document_id = str(
+            row["id"]
+        )
+
+        filename = str(
+            row["filename"]
+        )
+
         with st.container(
             border=True
         ):
 
             st.write(
-                f"**{row['filename']}**"
+                f"**{filename}**"
             )
 
             st.caption(
@@ -574,3 +610,116 @@ else:
                 st.write(
                     f"**Author:** {row['author']}"
                 )
+
+            # ------------------------------------------------
+            # DELETE WORKFLOW
+            # ------------------------------------------------
+
+            confirmation_key = (
+                f"confirm_delete_{document_id}"
+            )
+
+            pending_key = (
+                f"pending_delete_{document_id}"
+            )
+
+            if pending_key not in st.session_state:
+
+                st.session_state[
+                    pending_key
+                ] = False
+
+            if not st.session_state[
+                pending_key
+            ]:
+
+                if st.button(
+                    "🗑️ Delete",
+                    key=f"delete_{document_id}",
+                    use_container_width=False,
+                ):
+
+                    st.session_state[
+                        pending_key
+                    ] = True
+
+                    st.rerun()
+
+            else:
+
+                st.warning(
+                    f"Are you sure you want to delete "
+                    f"'{filename}'?"
+                )
+
+                st.caption(
+                    "This removes the document, its chunks, "
+                    "and its embeddings from Atlas. "
+                    "The original source file will not be deleted."
+                )
+
+                confirm_col1, confirm_col2 = st.columns(
+                    2
+                )
+
+                with confirm_col1:
+
+                    if st.button(
+                        "Cancel",
+                        key=f"cancel_{document_id}",
+                        use_container_width=True,
+                    ):
+
+                        st.session_state[
+                            pending_key
+                        ] = False
+
+                        st.rerun()
+
+                with confirm_col2:
+
+                    if st.button(
+                        "⚠️ Delete Permanently",
+                        key=confirmation_key,
+                        type="primary",
+                        use_container_width=True,
+                    ):
+
+                        try:
+
+                            deleted = service.delete(
+                                document_id
+                            )
+
+                            st.session_state[
+                                pending_key
+                            ] = False
+
+                            if deleted:
+
+                                st.success(
+                                    f"'{filename}' "
+                                    "was deleted from Atlas."
+                                )
+
+                                st.rerun()
+
+                            else:
+
+                                st.warning(
+                                    "The document was already "
+                                    "removed from Atlas."
+                                )
+
+                                st.rerun()
+
+                        except Exception as error:
+
+                            st.session_state[
+                                pending_key
+                            ] = False
+
+                            st.error(
+                                f"Failed to delete "
+                                f"'{filename}': {error}"
+                            )

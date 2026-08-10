@@ -14,7 +14,7 @@ __pycache__/
 venv/
 env/
 ENV/
-
+.release_venv/
 # ==========================
 # Environment Variables
 # ==========================
