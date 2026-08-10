@@ -5,6 +5,7 @@ from pathlib import Path
 import streamlit as st
 
 from services.document_service import DocumentService
+from services.rag_factory import create_rag_service
 from services.search_service import SearchService
 from services.vector_search_service import VectorSearchService
 
@@ -16,35 +17,28 @@ st.set_page_config(
 )
 
 
-# ============================================================
-# SERVICES
-# ============================================================
-
 @st.cache_resource
 def get_service() -> DocumentService:
-    """
-    Create and cache the Atlas document service.
-    """
-
     return DocumentService()
 
 
 def get_search_service(
     service: DocumentService,
 ) -> SearchService:
-    """
-    Create the semantic search service using the
-    already-cached DocumentService dependencies.
-
-    This function is intentionally not cached because
-    DocumentService contains objects that Streamlit
-    cannot reliably hash.
-    """
-
     return SearchService(
         embedding_service=service.embedding_service,
         embedding_repository=service.embedding_repository,
         vector_search_service=VectorSearchService(),
+    )
+
+
+@st.cache_resource
+def get_rag_service(
+    _service: DocumentService,
+):
+    return create_rag_service(
+        embedding_service=_service.embedding_service,
+        embedding_repository=_service.embedding_repository,
     )
 
 
@@ -54,10 +48,10 @@ search_service = get_search_service(
     service
 )
 
+rag_service = get_rag_service(
+    service
+)
 
-# ============================================================
-# HEADER
-# ============================================================
 
 st.title("📚 Project Atlas")
 
@@ -66,12 +60,7 @@ st.caption(
 )
 
 
-# ============================================================
-# DOCUMENT UPLOAD
-# ============================================================
-
 st.header("Import Document")
-
 
 uploaded_file = st.file_uploader(
     "Upload a document",
@@ -125,21 +114,18 @@ if uploaded_file is not None:
         col1, col2, col3 = st.columns(3)
 
         with col1:
-
             st.metric(
                 "Type",
                 document.document_type.value.upper(),
             )
 
         with col2:
-
             st.metric(
                 "Pages",
                 document.page_count,
             )
 
         with col3:
-
             st.metric(
                 "File Size",
                 f"{document.file_size:,} bytes",
@@ -181,16 +167,114 @@ if uploaded_file is not None:
         )
 
 
-# ============================================================
-# GET DOCUMENTS
-# ============================================================
-
 documents = service.list_documents()
 
 
-# ============================================================
-# SEMANTIC SEARCH
-# ============================================================
+st.divider()
+
+st.header("🤖 Ask Atlas")
+
+st.caption(
+    "Ask questions about your indexed documents. "
+    "Atlas retrieves relevant content and uses the "
+    "configured local Ollama model to generate a grounded answer."
+)
+
+
+question = st.text_area(
+    "Ask a question",
+    placeholder=(
+        "Example: Who is Rithvik and what are his interests?"
+    ),
+    height=100,
+)
+
+
+ask_col1, ask_col2 = st.columns(
+    [3, 1]
+)
+
+
+with ask_col1:
+
+    ask_button = st.button(
+        "🤖 Ask Atlas",
+        type="primary",
+        use_container_width=True,
+    )
+
+
+with ask_col2:
+
+    rag_top_k = st.number_input(
+        "Sources",
+        min_value=1,
+        max_value=20,
+        value=5,
+        step=1,
+    )
+
+
+if ask_button:
+
+    if not question.strip():
+
+        st.warning(
+            "Enter a question first."
+        )
+
+    else:
+
+        try:
+
+            with st.spinner(
+                f"Atlas is processing with "
+                f"{rag_service.model_name}..."
+            ):
+
+                response = rag_service.answer(
+                    question=question,
+                    top_k=int(rag_top_k),
+                )
+
+            st.subheader("Answer")
+
+            st.write(
+                response.answer
+            )
+
+            st.subheader("Sources")
+
+            for source in response.sources:
+
+                with st.expander(
+                    f"[Source {source.source_number}] "
+                    f"{source.filename} — "
+                    f"Page {source.page_number}"
+                ):
+
+                    st.write(
+                        f"**Similarity:** "
+                        f"{source.score:.4f}"
+                    )
+
+                    st.write(
+                        source.text
+                    )
+
+        except ValueError as error:
+
+            st.warning(
+                str(error)
+            )
+
+        except Exception as error:
+
+            st.error(
+                f"Atlas could not generate an answer: "
+                f"{error}"
+            )
+
 
 st.divider()
 
@@ -211,13 +295,10 @@ query = st.text_input(
 )
 
 
-# ------------------------------------------------------------
-# SEARCH CONTROLS
-# ------------------------------------------------------------
-
 document_options: dict[str, str] = {
     "All documents": "",
 }
+
 
 for row in documents:
 
@@ -279,10 +360,6 @@ search_button = st.button(
 )
 
 
-# ============================================================
-# SEARCH EXECUTION
-# ============================================================
-
 if search_button:
 
     if not query.strip():
@@ -326,10 +403,6 @@ if search_button:
                         )
                     )
 
-            # ------------------------------------------------
-            # SCORE FILTER
-            # ------------------------------------------------
-
             results = [
                 result
                 for result in results
@@ -337,10 +410,6 @@ if search_button:
                     result["score"]
                 ) >= minimum_score
             ]
-
-            # ------------------------------------------------
-            # RESULTS
-            # ------------------------------------------------
 
             if not results:
 
@@ -462,10 +531,6 @@ if search_button:
                 f"Search failed: {error}"
             )
 
-
-# ============================================================
-# DOCUMENT LIBRARY
-# ============================================================
 
 st.divider()
 
