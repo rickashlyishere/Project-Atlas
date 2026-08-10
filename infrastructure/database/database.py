@@ -6,11 +6,16 @@ from pathlib import Path
 
 class Database:
     """
-    SQLite database manager.
+    SQLite database manager for Atlas.
     """
 
-    def __init__(self, database_path: Path | str = "data/atlas.db") -> None:
-        self.database_path = Path(database_path)
+    def __init__(
+        self,
+        database_path: Path | str = "data/atlas.db",
+    ) -> None:
+        self.database_path = Path(
+            database_path
+        )
 
         self.database_path.parent.mkdir(
             parents=True,
@@ -24,15 +29,23 @@ class Database:
 
         self.connection.row_factory = sqlite3.Row
 
+        # Enable SQLite foreign-key constraints so that
+        # ON DELETE CASCADE relationships are enforced.
+        self.connection.execute(
+            "PRAGMA foreign_keys = ON"
+        )
+
     def execute(
         self,
         query: str,
         parameters: tuple = (),
     ) -> sqlite3.Cursor:
-
         cursor = self.connection.cursor()
 
-        cursor.execute(query, parameters)
+        cursor.execute(
+            query,
+            parameters,
+        )
 
         self.connection.commit()
 
@@ -43,10 +56,12 @@ class Database:
         query: str,
         parameters: list[tuple],
     ) -> None:
-
         cursor = self.connection.cursor()
 
-        cursor.executemany(query, parameters)
+        cursor.executemany(
+            query,
+            parameters,
+        )
 
         self.connection.commit()
 

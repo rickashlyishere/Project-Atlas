@@ -13,9 +13,7 @@ from infrastructure.database import (
     EmbeddingRepository,
     SchemaManager,
 )
-from infrastructure.embeddings import (
-    SentenceTransformerProvider,
-)
+from infrastructure.embeddings import SentenceTransformerProvider
 from infrastructure.parsers import (
     DOCXParser,
     ImageParser,
@@ -23,9 +21,7 @@ from infrastructure.parsers import (
     PPTXParser,
     TextParser,
 )
-from infrastructure.registry.parser_registry import (
-    ParserRegistry,
-)
+from infrastructure.registry.parser_registry import ParserRegistry
 
 from services.chunk_service import ChunkService
 from services.embedding_service import EmbeddingService
@@ -51,7 +47,11 @@ class DocumentService:
 
         self.storage = StorageService()
 
-        self.database = database or Database()
+        self.database = (
+            database
+            if database is not None
+            else Database()
+        )
 
         SchemaManager(
             self.database
@@ -93,16 +93,32 @@ class DocumentService:
 
         self._register_default_parsers()
 
-    def _register_default_parsers(self) -> None:
+    def _register_default_parsers(
+        self,
+    ) -> None:
         """
         Register all supported document parsers.
         """
 
-        self.registry.register(PDFParser())
-        self.registry.register(DOCXParser())
-        self.registry.register(PPTXParser())
-        self.registry.register(TextParser())
-        self.registry.register(ImageParser())
+        self.registry.register(
+            PDFParser()
+        )
+
+        self.registry.register(
+            DOCXParser()
+        )
+
+        self.registry.register(
+            PPTXParser()
+        )
+
+        self.registry.register(
+            TextParser()
+        )
+
+        self.registry.register(
+            ImageParser()
+        )
 
     @staticmethod
     def _calculate_file_hash(
@@ -117,6 +133,7 @@ class DocumentService:
         with file_path.open(
             "rb"
         ) as file:
+
             for block in iter(
                 lambda: file.read(1024 * 1024),
                 b"",
@@ -137,7 +154,9 @@ class DocumentService:
         creating duplicate chunks and embeddings.
         """
 
-        file_path = Path(file_path)
+        file_path = Path(
+            file_path
+        )
 
         if not file_path.is_file():
             raise FileNotFoundError(
@@ -160,24 +179,30 @@ class DocumentService:
             file_path
         )
 
-        # Parse even when the document already exists so the
-        # returned object remains a proper domain Document.
+        # Parse even when the document already exists so
+        # the returned object remains a proper domain
+        # Document.
         document = parser.parse(
             file_path
         )
 
         if existing is not None:
+
             document.id = str(
                 existing["id"]
             )
 
             document.filepath = Path(
-                str(existing["filepath"])
+                str(
+                    existing["filepath"]
+                )
             )
 
             document.created_at = (
                 datetime.fromisoformat(
-                    str(existing["created_at"])
+                    str(
+                        existing["created_at"]
+                    )
                 )
             )
 
@@ -187,7 +212,9 @@ class DocumentService:
 
             return document
 
-        document.content_hash = content_hash
+        document.content_hash = (
+            content_hash
+        )
 
         self.storage.save(
             file_path,
@@ -198,8 +225,10 @@ class DocumentService:
             document
         )
 
-        chunks = self.chunk_service.chunk_document(
-            document
+        chunks = (
+            self.chunk_service.chunk_document(
+                document
+            )
         )
 
         self.chunk_repository.add_many(
@@ -208,6 +237,7 @@ class DocumentService:
         )
 
         if chunks:
+
             self.embedding_service.embed_and_persist(
                 chunks
             )
@@ -221,7 +251,36 @@ class DocumentService:
 
         return document
 
-    def list_documents(self):
+    def delete(
+        self,
+        document_id: str,
+    ) -> bool:
+        """
+        Remove a document from the Atlas knowledge base.
+
+        Associated chunks and embeddings are removed through
+        the database foreign-key cascade.
+
+        The original source file is intentionally preserved.
+
+        Returns True when the document existed and was deleted.
+        Returns False when the document did not exist.
+        """
+
+        document_id = document_id.strip()
+
+        if not document_id:
+            raise ValueError(
+                "Document ID cannot be empty."
+            )
+
+        return self.repository.delete(
+            document_id
+        )
+
+    def list_documents(
+        self,
+    ):
         """
         Return all stored documents.
         """

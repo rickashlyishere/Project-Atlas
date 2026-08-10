@@ -12,7 +12,10 @@ class ChunkRepository:
     Repository responsible for chunk persistence.
     """
 
-    def __init__(self, database: Database) -> None:
+    def __init__(
+        self,
+        database: Database,
+    ) -> None:
         self.database = database
 
     def add(
@@ -22,11 +25,15 @@ class ChunkRepository:
     ) -> None:
         """
         Persist a single chunk.
+
+        Existing chunks are updated in place instead of using
+        INSERT OR REPLACE. This prevents foreign-key cascades
+        from deleting associated embeddings.
         """
 
         self.database.execute(
             """
-            INSERT OR REPLACE INTO chunks
+            INSERT INTO chunks
             (
                 id,
                 document_id,
@@ -40,6 +47,12 @@ class ChunkRepository:
             (
                 ?, ?, ?, ?, ?, ?, ?
             )
+            ON CONFLICT(id) DO UPDATE SET
+                document_id = excluded.document_id,
+                text = excluded.text,
+                page_number = excluded.page_number,
+                chunk_type = excluded.chunk_type,
+                embedding_id = excluded.embedding_id
             """,
             (
                 chunk.id,
@@ -59,6 +72,9 @@ class ChunkRepository:
     ) -> None:
         """
         Persist multiple chunks in one transaction.
+
+        Existing chunks are updated in place rather than
+        replaced.
         """
 
         if not chunks:
@@ -66,7 +82,7 @@ class ChunkRepository:
 
         self.database.executemany(
             """
-            INSERT OR REPLACE INTO chunks
+            INSERT INTO chunks
             (
                 id,
                 document_id,
@@ -80,6 +96,12 @@ class ChunkRepository:
             (
                 ?, ?, ?, ?, ?, ?, ?
             )
+            ON CONFLICT(id) DO UPDATE SET
+                document_id = excluded.document_id,
+                text = excluded.text,
+                page_number = excluded.page_number,
+                chunk_type = excluded.chunk_type,
+                embedding_id = excluded.embedding_id
             """,
             [
                 (
@@ -168,8 +190,7 @@ class ChunkRepository:
 
         cursor = self.database.execute(
             """
-            SELECT COUNT(*)
-            AS count
+            SELECT COUNT(*) AS count
             FROM chunks
             WHERE document_id = ?
             """,
@@ -178,10 +199,14 @@ class ChunkRepository:
 
         row = cursor.fetchone()
 
-        return int(row["count"])
+        return int(
+            row["count"]
+        )
 
     @staticmethod
-    def _row_to_chunk(row) -> Chunk:
+    def _row_to_chunk(
+        row,
+    ) -> Chunk:
         """
         Convert a SQLite row into a domain Chunk.
         """
@@ -190,6 +215,8 @@ class ChunkRepository:
             id=row["id"],
             text=row["text"],
             page_number=row["page_number"],
-            chunk_type=ChunkType(row["chunk_type"]),
+            chunk_type=ChunkType(
+                row["chunk_type"]
+            ),
             embedding_id=row["embedding_id"],
         )

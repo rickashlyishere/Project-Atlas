@@ -72,7 +72,9 @@ class DocumentRepository:
         content hash.
         """
 
-        content_hash = content_hash.strip().lower()
+        content_hash = (
+            content_hash.strip().lower()
+        )
 
         if not content_hash:
             return None
@@ -89,6 +91,61 @@ class DocumentRepository:
         )
 
         return cursor.fetchone()
+
+    def get_by_id(
+        self,
+        document_id: str,
+    ):
+        """
+        Return a document row by ID.
+        """
+
+        document_id = document_id.strip()
+
+        if not document_id:
+            return None
+
+        cursor = self.database.execute(
+            """
+            SELECT *
+            FROM documents
+            WHERE id = ?
+            """,
+            (document_id,),
+        )
+
+        return cursor.fetchone()
+
+    def delete(
+        self,
+        document_id: str,
+    ) -> bool:
+        """
+        Delete a document from the Atlas database.
+
+        Associated chunks and embeddings are removed by
+        the database foreign-key cascade.
+
+        The original source file is not deleted.
+
+        Returns True when a document was deleted.
+        Returns False when the document did not exist.
+        """
+
+        document_id = document_id.strip()
+
+        if not document_id:
+            return False
+
+        cursor = self.database.execute(
+            """
+            DELETE FROM documents
+            WHERE id = ?
+            """,
+            (document_id,),
+        )
+
+        return cursor.rowcount > 0
 
     def backfill_content_hashes(self) -> int:
         """
@@ -150,9 +207,7 @@ class DocumentRepository:
 
         digest = hashlib.sha256()
 
-        with file_path.open(
-            "rb"
-        ) as file:
+        with file_path.open("rb") as file:
             for block in iter(
                 lambda: file.read(1024 * 1024),
                 b"",
